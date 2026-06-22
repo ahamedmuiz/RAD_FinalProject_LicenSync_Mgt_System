@@ -1,13 +1,16 @@
 import express from 'express';
-import { registerUser, loginUser, changePassword } from '../controllers/authController'; 
+// Add refreshAccessToken and logoutUser to your imports
+import { registerUser, loginUser, changePassword, refreshAccessToken, logoutUser } from '../controllers/authController'; 
 import { protect } from '../middleware/authMiddleware';
-const router = express.Router();
 
-// Let's add a log here so we know this file is definitely executing!
-console.log("--> authRoutes.ts is successfully loaded!");
+const router = express.Router();
 
 router.post('/register', registerUser);
 router.post('/login', loginUser);
 router.put('/change-password', protect, changePassword);
+
+// Add the two new routes here!
+router.get('/refresh', refreshAccessToken);
+router.post('/logout', logoutUser);
 
 export default router;

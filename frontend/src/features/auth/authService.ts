@@ -11,7 +11,10 @@ const login = async (userData: any) => {
 
 // Logout user
 const logout = async () => {
-  // We call the backend so it can destroy the HTTP-only cookie if you add a logout route later
+  // Call the backend to destroy the HTTP-Only cookie securely
+  await api.post('/auth/logout');
+  
+  // Clear the local storage
   localStorage.removeItem('user');
 };
 

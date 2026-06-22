@@ -68,3 +68,55 @@ export const getClients = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ message: error.message });
   }
 };
+
+// @desc    Update a client company
+// @route   PUT /api/clients/:id
+// @access  Private / Project Manager Only
+export const updateClient = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const updatedClient = await ClientCompany.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('primaryContact', 'name email');
+
+    if (!updatedClient) {
+      res.status(404).json({ message: 'Client not found' });
+      return;
+    }
+
+    res.json(updatedClient);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Delete a client company (Cascading delete)
+// @route   DELETE /api/clients/:id
+// @access  Private / Project Manager Only
+export const deleteClient = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const client = await ClientCompany.findById(req.params.id);
+
+    if (!client) {
+      res.status(404).json({ message: 'Client not found' });
+      return;
+    }
+
+    // 1. Delete the User associated with this company
+    await User.deleteOne({ companyId: client._id });
+
+    // 2. Delete all Software Licenses associated with this company
+    // (Requires importing SoftwareLicense at the top of this file!)
+    const SoftwareLicense = require('../models/SoftwareLicense').default; 
+    await SoftwareLicense.deleteMany({ clientId: client._id });
+
+    // 3. Delete the company itself
+    await client.deleteOne();
+
+    res.json({ message: 'Client, user account, and all licenses completely removed' });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

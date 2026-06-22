@@ -12,9 +12,23 @@ const createClient = async (clientData: any) => {
   return response.data;
 };
 
+// Update a client
+const updateClient = async (clientId: string, clientData: any) => {
+  const response = await api.put(`/clients/${clientId}`, clientData);
+  return response.data;
+};
+
+// Delete a client
+const deleteClient = async (clientId: string) => {
+  const response = await api.delete(`/clients/${clientId}`);
+  return response.data;
+};
+
 const clientService = {
   getClients,
   createClient,
+  updateClient,
+  deleteClient,
 };
 
 export default clientService;

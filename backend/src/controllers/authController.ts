@@ -9,6 +9,13 @@ const generateToken = (id: string, role: string) => {
   });
 };
 
+// Helper function to generate a long-lived HTTP-Only Refresh Token
+const generateRefreshToken = (id: string) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET as string, {
+    expiresIn: '7d', 
+  });
+};
+
 // @desc    Register a new user (Mainly used for initial setup right now)
 // @route   POST /api/auth/register
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
@@ -53,14 +60,26 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 
     const user = await User.findOne({ email });
 
-    // Check if user exists and password matches
     if (user && (await user.matchPassword(password))) {
+      
+      // 1. Generate the 7-day refresh token
+      const refreshToken = generateRefreshToken(user._id.toString());
+      
+      // 2. Attach it as an HTTP-Only cookie (Cannot be stolen by JavaScript!)
+      res.cookie('jwt', refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV !== 'development', // Uses secure HTTPS in production
+        sameSite: 'strict',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
+      });
+
+      // 3. Send the normal short-lived access token to the frontend
       res.json({
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
-        mustChangePassword: user.mustChangePassword, // <-- WE JUST ADDED THIS LINE!
+        mustChangePassword: user.mustChangePassword,
         token: generateToken(user._id.toString(), user.role),
       });
     } else {
@@ -101,4 +120,43 @@ export const changePassword = async (req: any, res: any): Promise<void> => {
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
+};
+
+// @desc    Refresh access token silently
+// @route   GET /api/auth/refresh
+export const refreshAccessToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const refreshToken = req.cookies.jwt;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: 'No refresh token found in cookies' });
+      return;
+    }
+
+    // Verify the cookie token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET as string) as any;
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user) {
+      res.status(401).json({ message: 'User not found' });
+      return;
+    }
+
+    // Issue a brand new 15-minute access token!
+    res.json({
+      token: generateToken(user._id.toString(), user.role)
+    });
+  } catch (error) {
+    res.status(401).json({ message: 'Refresh token expired or invalid' });
+  }
+};
+
+// @desc    Logout user & destroy cookie
+// @route   POST /api/auth/logout
+export const logoutUser = (req: Request, res: Response) => {
+  res.cookie('jwt', '', {
+    httpOnly: true,
+    expires: new Date(0), // Instantly expire the cookie
+  });
+  res.status(200).json({ message: 'Logged out successfully' });
 };

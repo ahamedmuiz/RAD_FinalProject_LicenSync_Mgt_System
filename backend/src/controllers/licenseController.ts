@@ -38,7 +38,8 @@ export const getLicenses = async (req: AuthRequest, res: Response): Promise<void
       licenses = await SoftwareLicense.find().populate('clientId', 'companyName billingEmail status');
     } else {
       // Clients ONLY see licenses linked to their specific company ID
-      licenses = await SoftwareLicense.find({ clientId: req.user?.companyId }).populate('clientId', 'companyName');
+      // UPDATE: Populate full company details so the client can view them!
+      licenses = await SoftwareLicense.find({ clientId: req.user?.companyId }).populate('clientId', 'companyName billingEmail phone paymentTerms billingAddress registrationNumber');
     }
 
     res.json(licenses);
@@ -92,10 +93,9 @@ export const deleteLicense = async (req: AuthRequest, res: Response): Promise<vo
 
 // @desc    Generate PDF Request for Quotation
 // @route   GET /api/licenses/:id/rfq
-// @access  Private / Both Roles (Clients can download their own quotes)
+// @access  Private / Both Roles
 export const generateRFQ = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    // 1. Fetch the license and populate the client details
     const license = await SoftwareLicense.findById(req.params.id).populate('clientId');
 
     if (!license) {
@@ -103,16 +103,17 @@ export const generateRFQ = async (req: AuthRequest, res: Response): Promise<void
       return;
     }
 
-    const client = license.clientId as any; // Typecasting for populated document
+    const client = license.clientId as any;
 
-    // 2. Security Check: If the user is a CLIENT, ensure this license belongs to them
     if (req.user?.role === 'CLIENT' && req.user.companyId?.toString() !== client._id.toString()) {
       res.status(403).json({ message: 'Not authorized to view this document' });
       return;
     }
 
-    // 3. Prepare the data for the PDF (Using a standard $120/seat placeholder for the quote)
-    const pricePerSeat = 120.00; 
+    // --- DYNAMIC DATA UPGRADE ---
+    // Look at the URL query. If they provided a custom price/seat count, use it. Otherwise, default to the database values.
+    const pricePerSeat = req.query.price ? parseFloat(req.query.price as string) : 120.00; 
+    const requestedSeats = req.query.seats ? parseInt(req.query.seats as string) : license.seatCount;
     
     const rfqData = {
       quotationNumber: `RFQ-${license._id.toString().substring(0, 6).toUpperCase()}`,
@@ -121,16 +122,48 @@ export const generateRFQ = async (req: AuthRequest, res: Response): Promise<void
       billingAddress: client.billingAddress || 'No address provided',
       softwareName: license.softwareName,
       vendor: license.vendor,
-      seatCount: license.seatCount,
+      seatCount: requestedSeats,         // Now dynamic!
       expiryDate: new Date(license.expiryDate).toLocaleDateString(),
-      pricePerSeat: pricePerSeat,
-      totalAmount: license.seatCount * pricePerSeat,
+      pricePerSeat: pricePerSeat,        // Now dynamic!
+      totalAmount: requestedSeats * pricePerSeat, // Auto-calculates the new total!
       paymentTerms: client.paymentTerms || 'Net 30'
     };
 
-    // 4. Trigger the PDF generation (This will stream directly back to the user!)
+    // Trigger the PDF generation
+    const { buildRFQDocument } = require('../services/pdfGenerator');
     buildRFQDocument(res, rfqData);
 
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Consume 1 License Seat
+// @route   PATCH /api/licenses/:id/consume
+// @access  Private / Clients
+export const consumeSeat = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const license = await SoftwareLicense.findById(req.params.id);
+    if (!license) {
+      res.status(404).json({ message: 'License not found' });
+      return;
+    }
+    // Security: Ensure client owns this license
+    if (req.user?.role === 'CLIENT' && req.user.companyId?.toString() !== license.clientId.toString()) {
+      res.status(403).json({ message: 'Not authorized' });
+      return;
+    }
+    if (license.seatCount <= 0) {
+      res.status(400).json({ message: 'No seats available to consume.' });
+      return;
+    }
+
+    license.seatCount -= 1;
+    await license.save();
+    
+    // Return updated license with populated client so Redux updates perfectly
+    const updatedLicense = await SoftwareLicense.findById(license._id).populate('clientId', 'companyName');
+    res.json(updatedLicense);
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

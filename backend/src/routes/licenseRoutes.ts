@@ -1,5 +1,5 @@
 import express from 'express';
-import { createLicense, getLicenses, updateLicense, deleteLicense,generateRFQ } from '../controllers/licenseController';
+import { createLicense, getLicenses, updateLicense, deleteLicense,generateRFQ, consumeSeat } from '../controllers/licenseController';
 import { protect, projectManagerOnly } from '../middleware/authMiddleware';
 
 const router = express.Router();
@@ -21,5 +21,10 @@ router.route('/:id')
   // GET is accessible by both PMs and Clients so they can download the quote
 router.route('/:id/rfq')
   .get(generateRFQ);
+  
+
+  // Client route to consume a seat
+router.route('/:id/consume')
+  .patch(consumeSeat);
   
 export default router;

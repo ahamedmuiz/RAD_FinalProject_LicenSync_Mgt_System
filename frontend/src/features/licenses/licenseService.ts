@@ -12,26 +12,51 @@ const createLicense = async (licenseData: any) => {
   return response.data;
 };
 
-// Download PDF Quote
-const downloadRFQ = async (licenseId: string) => {
-  const response = await api.get(`/licenses/${licenseId}/rfq`, {
-    responseType: 'blob', // Crucial: Tells Axios to expect a binary file, not JSON!
+// Download PDF Quote (Now accepts dynamic seats and price!)
+const downloadRFQ = async (licenseId: string, seats?: number, price?: number) => {
+  // Build the URL with query parameters if they exist
+  let url = `/licenses/${licenseId}/rfq`;
+  const params = new URLSearchParams();
+  
+  if (seats) params.append('seats', seats.toString());
+  if (price) params.append('price', price.toString());
+  
+  if (params.toString()) {
+    url += `?${params.toString()}`;
+  }
+
+  const response = await api.get(url, {
+    responseType: 'blob', 
   });
   
-  // Create a temporary hidden link in the browser to trigger the file download
-  const url = window.URL.createObjectURL(new Blob([response.data]));
+  const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
   const link = document.createElement('a');
-  link.href = url;
+  link.href = blobUrl;
   link.setAttribute('download', `Quotation_${licenseId.substring(0,6)}.pdf`);
   document.body.appendChild(link);
   link.click();
   link.remove();
 };
 
+// Delete a license (Admin)
+const deleteLicense = async (licenseId: string) => {
+  const response = await api.delete(`/licenses/${licenseId}`);
+  return response.data;
+};
+
+// Consume a seat (Client)
+const consumeSeat = async (licenseId: string) => {
+  const response = await api.patch(`/licenses/${licenseId}/consume`);
+  return response.data;
+};
+
+
 const licenseService = {
   getLicenses,
   createLicense,
   downloadRFQ,
+  deleteLicense,
+  consumeSeat,
 };
 
 export default licenseService;
