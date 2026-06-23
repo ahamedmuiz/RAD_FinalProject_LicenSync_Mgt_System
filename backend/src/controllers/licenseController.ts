@@ -2,21 +2,23 @@ import { Response } from 'express';
 import { AuthRequest } from '../middleware/authMiddleware';
 import SoftwareLicense from '../models/SoftwareLicense';
 import { buildRFQDocument } from '../services/pdfGenerator';
+import { sendEmail } from '../utils/sendEmail';
+import { buildRFQBuffer } from '../services/pdfGenerator'; 
 
 // @desc    Create a new software license
 // @route   POST /api/licenses
 // @access  Private / Project Manager Only
-export const createLicense = async (req: AuthRequest, res: Response): Promise<void> => {
+export const createLicense = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { clientId, softwareName, vendor, seatCount, licenseKey, issueDate, expiryDate } = req.body;
+    const { clientId, softwareName, vendor, seatCount, licenseKey, expiryDate } = req.body;
 
     const license = await SoftwareLicense.create({
       clientId,
       softwareName,
       vendor,
-      seatCount,
+      totalSeats: seatCount, // NEW: Saves the original purchased amount
+      seatCount: seatCount,  // NEW: Sets the currently available seats
       licenseKey,
-      issueDate: issueDate || Date.now(),
       expiryDate,
     });
 
@@ -51,26 +53,26 @@ export const getLicenses = async (req: AuthRequest, res: Response): Promise<void
 // @desc    Update an existing license
 // @route   PUT /api/licenses/:id
 // @access  Private / Project Manager Only
-export const updateLicense = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    const license = await SoftwareLicense.findById(req.params.id);
+// export const updateLicense = async (req: AuthRequest, res: Response): Promise<void> => {
+//   try {
+//     const license = await SoftwareLicense.findById(req.params.id);
 
-    if (!license) {
-      res.status(404).json({ message: 'License not found' });
-      return;
-    }
+//     if (!license) {
+//       res.status(404).json({ message: 'License not found' });
+//       return;
+//     }
 
-    const updatedLicense = await SoftwareLicense.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true } // Returns the updated document and runs schema validation
-    ).populate('clientId', 'companyName');
+//     const updatedLicense = await SoftwareLicense.findByIdAndUpdate(
+//       req.params.id,
+//       req.body,
+//       { new: true, runValidators: true } // Returns the updated document and runs schema validation
+//     ).populate('clientId', 'companyName');
 
-    res.json(updatedLicense);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-};
+//     res.json(updatedLicense);
+//   } catch (error: any) {
+//     res.status(400).json({ message: error.message });
+//   }
+// };
 
 // @desc    Delete a license
 // @route   DELETE /api/licenses/:id
@@ -164,6 +166,77 @@ export const consumeSeat = async (req: AuthRequest, res: Response): Promise<void
     // Return updated license with populated client so Redux updates perfectly
     const updatedLicense = await SoftwareLicense.findById(license._id).populate('clientId', 'companyName');
     res.json(updatedLicense);
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// @desc    Update a software license
+// @route   PUT /api/licenses/:id
+// @access  Private / Project Manager Only
+export const updateLicense = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const updatedLicense = await SoftwareLicense.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedLicense) {
+      res.status(404).json({ message: 'License not found' });
+      return;
+    }
+
+    res.json(updatedLicense);
+  } catch (error: any) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// @desc    Generate and Email PDF Request for Quotation
+// @route   POST /api/licenses/:id/email-quote
+// @access  Private / Project Manager Only
+export const emailQuote = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const license = await SoftwareLicense.findById(req.params.id).populate('clientId');
+    if (!license) { res.status(404).json({ message: 'License not found' }); return; }
+
+    const client = license.clientId as any;
+    const pricePerSeat = req.body.price || 120.00; 
+    const requestedSeats = req.body.seats || license.seatCount;
+    
+    const rfqData = {
+      quotationNumber: `RFQ-${license._id.toString().substring(0, 6).toUpperCase()}`,
+      date: new Date().toLocaleDateString(),
+      companyName: client.companyName,
+      softwareName: license.softwareName,
+      vendor: license.vendor,
+      seatCount: requestedSeats,
+      pricePerSeat: pricePerSeat,
+      totalAmount: requestedSeats * pricePerSeat,
+    };
+
+    // 1. Generate the PDF in memory
+    const pdfBuffer = await buildRFQBuffer(rfqData);
+
+    // 2. Send the email with the PDF attached
+    await sendEmail({
+      email: client.billingEmail, // Sends to the client's email
+      subject: `LicenSync Quotation - ${rfqData.quotationNumber}`,
+      html: `<h3>Hello ${client.companyName},</h3>
+             <p>Please find attached your requested quotation for <strong>${rfqData.softwareName}</strong> (${rfqData.seatCount} seats).</p>
+             <p>Total Amount: <strong>$${rfqData.totalAmount}</strong></p>
+             <br><p>Best regards,<br>Elite Software Solutions</p>`,
+      attachments: [
+        {
+          filename: `${rfqData.quotationNumber}.pdf`,
+          content: pdfBuffer,
+        }
+      ]
+    });
+
+    res.status(200).json({ message: 'Quotation sent successfully to ' + client.billingEmail });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }

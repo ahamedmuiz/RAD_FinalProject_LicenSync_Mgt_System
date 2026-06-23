@@ -37,6 +37,15 @@ export const deleteLicense = createAsyncThunk('licenses/delete', async (id: stri
   }
 });
 
+
+export const updateLicense = createAsyncThunk('licenses/update', async (data: {id: string, licenseData: any}, thunkAPI) => {
+  try {
+    return await licenseService.updateLicense(data.id, data.licenseData);
+  } catch (error: any) {
+    return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+  }
+});
+
 export const consumeSeat = createAsyncThunk('licenses/consume', async (id: string, thunkAPI) => {
   try {
     return await licenseService.consumeSeat(id); // Returns the updated license
@@ -95,6 +104,15 @@ export const licenseSlice = createSlice({
         state.isLoading = false;
         state.isSuccess = true;
         // Find the license and update its seat count
+        const index = state.licenses.findIndex((lic: any) => lic._id === action.payload._id);
+        if (index !== -1) {
+          state.licenses[index] = action.payload as never;
+        }
+      })
+
+      .addCase(updateLicense.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isSuccess = true;
         const index = state.licenses.findIndex((lic: any) => lic._id === action.payload._id);
         if (index !== -1) {
           state.licenses[index] = action.payload as never;

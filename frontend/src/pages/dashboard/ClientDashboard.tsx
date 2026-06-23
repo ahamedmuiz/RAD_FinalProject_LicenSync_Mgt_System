@@ -1,19 +1,23 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { LogOut, ShieldCheck, Key, Calendar, Loader2, Building2, UserMinus } from 'lucide-react';
+import { LogOut, ShieldCheck, Key, Calendar, Loader2, Building2, UserMinus, AlertTriangle, LayoutDashboard } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { logout, reset as resetAuth } from '../../features/auth/authSlice';
 import { getLicenses, consumeSeat, reset as resetLicenses } from '../../features/licenses/licenseSlice';
 import type { AppDispatch, RootState } from '../../store/store';
 import ChangePasswordModal from '../../components/ChangePasswordModal';
+import KeyGeneratedModal from '../../components/KeyGeneratedModal';
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
 
   const { user } = useSelector((state: RootState) => state.auth);
-  const { licenses, isLoading } = useSelector((state: RootState) => state.licenses);
+  const { licenses, isLoading, isError, message } = useSelector((state: RootState) => state.licenses);
+
+  // State for the generated key popup
+  const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<{key: string, name: string} | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -21,119 +25,172 @@ const ClientDashboard = () => {
       return;
     }
     dispatch(getLicenses());
+    if (isError) toast.error(message);
     return () => { dispatch(resetLicenses()); };
-  }, [user, navigate, dispatch]);
+  }, [user, navigate, dispatch, isError, message]);
 
   const onLogout = () => {
-    dispatch(logout());
-    dispatch(resetAuth());
-    navigate('/login');
+    if(window.confirm('Are you sure you want to log out?')) {
+      dispatch(logout());
+      dispatch(resetAuth());
+      toast.success('Logged out successfully');
+      navigate('/login');
+    }
   };
 
-  const handleConsumeSeat = async (licenseId: string, availableSeats: number) => {
-    if (availableSeats <= 0) {
-      toast.error('No seats available on this license.');
-      return;
-    }
-    if (window.confirm('Consume 1 seat to generate an activation key?')) {
+  const handleConsumeSeat = async (lic: any) => {
+    if (window.confirm(`Consume 1 seat for ${lic.softwareName}? This action cannot be undone.`)) {
       try {
-        await dispatch(consumeSeat(licenseId)).unwrap();
-        // In a real app, you might show a modal with a generated serial key here!
-        toast.success('Seat consumed! Activation key sent to email.');
+        const updatedLicense = await dispatch(consumeSeat(lic._id)).unwrap();
+        // Trigger the professional Key Popup!
+        setNewlyGeneratedKey({
+          key: updatedLicense.licenseKey, 
+          name: updatedLicense.softwareName
+        });
       } catch (error: any) {
         toast.error(error || 'Failed to consume seat');
       }
     }
   };
 
-  const getStatusBadge = (expiryDate: string) => {
-    const diffDays = Math.ceil((new Date(expiryDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)); 
-    if (diffDays < 0) return <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-xs font-bold">EXPIRED</span>;
-    if (diffDays <= 30) return <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold">EXPIRING SOON</span>;
-    return <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold">ACTIVE</span>;
+  // Upgraded Logic: Calculates Days Remaining
+  const getExpirationDetails = (expiryDate: string) => {
+    const diffTime = new Date(expiryDate).getTime() - new Date().getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    
+    if (diffDays < 0) return { expired: true, text: 'EXPIRED', color: 'bg-red-100 text-red-700 border border-red-200', daysText: `${Math.abs(diffDays)} days ago` };
+    if (diffDays <= 30) return { expired: false, text: 'EXPIRING SOON', color: 'bg-amber-100 text-amber-700 border border-amber-200', daysText: `in ${diffDays} days` };
+    return { expired: false, text: 'ACTIVE', color: 'bg-emerald-100 text-emerald-700 border border-emerald-200', daysText: `in ${diffDays} days` };
   };
 
-  // Extract company info from the first license (populated by backend)
-  const companyInfo = licenses.length > 0 ? licenses[0].clientId : null;
+  // Guard against licenses being an unexpected type (TS may infer never)
+  const companyInfo = Array.isArray(licenses) && licenses.length > 0 ? (licenses[0] as any).clientId : null;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 font-sans">
       {user?.mustChangePassword && <ChangePasswordModal />}
+      
+      {/* Popups up when a seat is successfully consumed */}
+      {newlyGeneratedKey && (
+        <KeyGeneratedModal 
+          licenseKey={newlyGeneratedKey.key} 
+          softwareName={newlyGeneratedKey.name} 
+          onClose={() => setNewlyGeneratedKey(null)} 
+        />
+      )}
 
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-600 p-2 rounded-lg"><ShieldCheck className="text-white" size={24} /></div>
-          <span className="text-xl font-bold text-slate-800">LicenSync Client Portal</span>
+      {/* Vibrant Top Navigation */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 px-6 py-4 flex justify-between items-center shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-200">
+            <ShieldCheck className="text-white" size={24} />
+          </div>
+          <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-900 to-teal-900 tracking-tight">
+            LicenSync Portal
+          </span>
         </div>
         <div className="flex items-center gap-6">
-          <span className="text-sm font-medium text-slate-600">Welcome, {user?.name}</span>
-          <button onClick={onLogout} className="flex items-center gap-2 text-sm font-medium text-red-600 hover:text-red-700 transition-colors">
+          <span className="text-sm font-bold text-emerald-900 bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100 shadow-sm">
+            {user?.name}
+          </span>
+          <button onClick={onLogout} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-red-600 transition-colors">
             <LogOut size={18} /> Logout
           </button>
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-6 py-8">
+      {/* Stunning Hero Section */}
+      <div className="bg-gradient-to-br from-emerald-900 via-teal-900 to-cyan-950 pb-24 pt-12 px-6 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-white to-transparent"></div>
+        <div className="max-w-7xl mx-auto relative z-10">
+          <h1 className="text-4xl font-extrabold text-white mb-2 tracking-tight">Welcome back, {user?.name.split(' ')[0]}</h1>
+          <p className="text-emerald-100 text-lg font-medium">Manage your enterprise software subscriptions and activate new seats.</p>
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-6 -mt-12 relative z-20 pb-12">
         
-        {/* Client's Company Profile Card */}
+        {/* Full Company Details Visualizer */}
         {companyInfo && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 mb-8 flex items-start gap-6">
-            <div className="bg-emerald-100 p-4 rounded-2xl text-emerald-600"><Building2 size={40} /></div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">{companyInfo.companyName}</h1>
-              <div className="flex flex-wrap gap-x-6 gap-y-2 mt-2 text-sm text-slate-600">
-                <p><span className="font-semibold text-slate-700">Billing Email:</span> {companyInfo.billingEmail}</p>
-                <p><span className="font-semibold text-slate-700">Phone:</span> {companyInfo.phone || 'N/A'}</p>
-                <p><span className="font-semibold text-slate-700">Reg No:</span> {companyInfo.registrationNumber || 'N/A'}</p>
-                <p><span className="font-semibold text-slate-700">Terms:</span> {companyInfo.paymentTerms}</p>
-              </div>
+          <div className="bg-white rounded-3xl shadow-xl shadow-emerald-100/40 border border-slate-100 overflow-hidden mb-10">
+            <div className="bg-slate-900 px-8 py-5 flex justify-between items-center border-b border-slate-800">
+               <h2 className="text-xl font-extrabold text-white flex items-center gap-3"><Building2 size={24} className="text-emerald-400"/> Corporate Profile</h2>
+               <span className="px-3 py-1 bg-white/10 text-white text-xs font-bold rounded-lg tracking-wider uppercase">Verified Account</span>
+            </div>
+            <div className="p-8 grid grid-cols-1 md:grid-cols-4 gap-8">
+              <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Company Name</p><p className="text-xl font-black text-slate-900">{companyInfo.companyName}</p></div>
+              <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Billing Email</p><p className="text-slate-700 font-bold">{companyInfo.billingEmail}</p></div>
+              <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Registration No.</p><p className="text-slate-700 font-bold">{companyInfo.registrationNumber || 'N/A'}</p></div>
+              <div><p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Payment Terms</p><p className="text-emerald-700 font-bold bg-emerald-50 border border-emerald-100 inline-block px-3 py-1.5 rounded-lg">{companyInfo.paymentTerms}</p></div>
             </div>
           </div>
         )}
 
-        <div className="mb-6"><h2 className="text-2xl font-bold text-slate-900">My Software Licenses</h2></div>
+        <div className="mb-6"><h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Assigned Software Licenses</h2></div>
 
         {isLoading ? (
-          <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-emerald-600" size={48} /></div>
+          <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-emerald-600"></div></div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {licenses.length > 0 ? (
-              licenses.map((lic: any) => (
-                <div key={lic._id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <h3 className="text-xl font-bold text-slate-800">{lic.softwareName}</h3>
-                      {getStatusBadge(lic.expiryDate)}
-                    </div>
-                    <div className="space-y-3 mb-6">
-                      <div className="flex items-center gap-3 text-slate-600 text-sm">
-                        <Key size={16} className="text-slate-400" />
-                        <span>Available Seats: <strong className={`text-lg ${lic.seatCount === 0 ? 'text-red-600' : 'text-emerald-600'}`}>{lic.seatCount}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-600 text-sm">
-                        <ShieldCheck size={16} className="text-slate-400" />
-                        <span>Vendor: <strong>{lic.vendor}</strong></span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-600 text-sm">
-                        <Calendar size={16} className="text-slate-400" />
-                        <span>Expires: <strong>{new Date(lic.expiryDate).toLocaleDateString()}</strong></span>
-                      </div>
-                    </div>
-                  </div>
+              licenses.map((lic: any) => {
+                const expStatus = getExpirationDetails(lic.expiryDate);
+                const seatsEmpty = lic.seatCount === 0;
 
-                  <button 
-                    onClick={() => handleConsumeSeat(lic._id, lic.seatCount)}
-                    disabled={lic.seatCount === 0}
-                    className="w-full flex justify-center items-center gap-2 bg-slate-900 text-white hover:bg-slate-800 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
-                  >
-                    <UserMinus size={18} /> Consume 1 Seat
-                  </button>
-                </div>
-              ))
+                return (
+                  <div key={lic._id} className={`bg-white rounded-3xl shadow-sm border ${expStatus.expired ? 'border-red-200 bg-red-50/20 opacity-90' : 'border-slate-200 hover:shadow-xl hover:shadow-emerald-100 hover:-translate-y-1'} p-8 transition-all duration-300`}>
+                    
+                    <div className="flex justify-between items-start mb-6">
+                      <div>
+                        <h3 className={`text-2xl font-black tracking-tight ${expStatus.expired ? 'text-slate-500 line-through' : 'text-slate-900'}`}>{lic.softwareName}</h3>
+                        <p className="text-emerald-600 mt-1 font-bold flex items-center gap-2"><Building2 size={16}/> {lic.vendor}</p>
+                      </div>
+                      <div className="text-right flex flex-col items-end">
+                        <span className={`${expStatus.color} px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase shadow-sm`}>
+                          {expStatus.text}
+                        </span>
+                        <p className="text-sm font-bold text-slate-500 mt-2 flex items-center gap-1"><Calendar size={14}/> Expires {expStatus.daysText}</p>
+                      </div>
+                    </div>
+
+                    {/* Seat Visualizer */}
+                    <div className={`rounded-2xl p-5 mb-8 border ${expStatus.expired ? 'bg-white border-red-100' : 'bg-slate-50 border-slate-200'}`}>
+                      <div className="flex justify-between text-sm mb-3">
+                        <span className="font-bold text-slate-500 uppercase tracking-wide">License Allocation</span>
+                        <span className="font-black text-slate-900">{lic.seatCount} / {lic.totalSeats || lic.seatCount} Available</span>
+                      </div>
+                      {/* Progress Bar Visual */}
+                      <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden shadow-inner">
+                        <div 
+                          className={`h-3 rounded-full ${seatsEmpty ? 'bg-red-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'}`} 
+                          style={{ width: `${(lic.seatCount / (lic.totalSeats || lic.seatCount)) * 100}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {expStatus.expired ? (
+                       <div className="w-full flex justify-center items-center gap-2 bg-red-100 text-red-700 py-3.5 rounded-xl font-bold border border-red-200 cursor-not-allowed shadow-sm">
+                         <AlertTriangle size={18} /> License Terminated - Read Only
+                       </div>
+                    ) : (
+                      <button 
+                        onClick={() => handleConsumeSeat(lic)}
+                        disabled={seatsEmpty}
+                        className="w-full flex justify-center items-center gap-2 bg-gradient-to-r from-slate-900 to-slate-800 text-white hover:from-emerald-600 hover:to-teal-600 py-3.5 rounded-xl font-bold transition-all disabled:opacity-50 disabled:hover:from-slate-900 disabled:hover:to-slate-800 shadow-md hover:shadow-lg transform active:scale-95"
+                      >
+                        <Key size={18} /> {seatsEmpty ? 'Out of Seats' : 'Consume 1 Seat & Get Activation Key'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })
             ) : (
-              <div className="col-span-full bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-                <Key className="mx-auto text-slate-300 mb-4" size={48} />
-                <h3 className="text-lg font-medium text-slate-900 mb-1">No active licenses</h3>
+              <div className="col-span-full bg-white rounded-3xl border-2 border-dashed border-slate-200 p-16 text-center shadow-sm">
+                <div className="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <LayoutDashboard className="text-slate-400" size={40} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900 mb-2">No Active Licenses</h3>
+                <p className="text-slate-500 font-medium text-lg max-w-md mx-auto">Your company has not been assigned any software licenses yet. Please contact your Project Manager.</p>
               </div>
             )}
           </div>

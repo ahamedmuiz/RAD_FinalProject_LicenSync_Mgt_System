@@ -19,6 +19,7 @@ export const buildRFQDocument = (res: Response, data: RFQData): void => {
   // Initialize a new PDF document
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
 
+  
   // Set the response headers to trigger a file download in the browser
   const filename = `RFQ_${data.companyName.replace(/\s+/g, '_')}_${data.softwareName}.pdf`;
   res.setHeader('Content-Type', 'application/pdf');
@@ -86,4 +87,36 @@ export const buildRFQDocument = (res: Response, data: RFQData): void => {
 
   // Finalize the PDF and end the stream
   doc.end();
+};
+
+// Add this below your existing buildRFQDocument function
+export const buildRFQBuffer = (rfqData: any): Promise<Buffer> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ margin: 50 });
+      const buffers: Buffer[] = [];
+
+      doc.on('data', buffers.push.bind(buffers));
+      doc.on('end', () => {
+        const pdfData = Buffer.concat(buffers);
+        resolve(pdfData);
+      });
+
+      // --- ADD YOUR PDF DESIGN HERE ---
+      // (You can copy the exact same doc.fontSize().text() design logic you used in buildRFQDocument)
+      doc.fontSize(20).text('REQUEST FOR QUOTATION', { align: 'center' });
+      doc.moveDown();
+      doc.fontSize(12).text(`Quote Number: ${rfqData.quotationNumber}`);
+      doc.text(`Company: ${rfqData.companyName}`);
+      doc.text(`Software: ${rfqData.softwareName}`);
+      doc.text(`Seats: ${rfqData.seatCount}`);
+      doc.text(`Total Amount: $${rfqData.totalAmount}`);
+      // --------------------------------
+
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
 };

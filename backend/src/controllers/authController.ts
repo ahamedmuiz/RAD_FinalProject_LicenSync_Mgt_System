@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import { sendEmail } from '../utils/sendEmail'; 
+
 
 // Helper function to generate a short-lived JWT
 const generateToken = (id: string, role: string) => {
@@ -159,4 +161,63 @@ export const logoutUser = (req: Request, res: Response) => {
     expires: new Date(0), // Instantly expire the cookie
   });
   res.status(200).json({ message: 'Logged out successfully' });
+};
+
+
+// @desc    Forgot Password - Send Email
+// @route   POST /api/auth/forgot-password
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+    if (!user) {
+      res.status(404).json({ message: 'There is no user with that email address.' });
+      return;
+    }
+
+    // Generate a temporary reset token (Valid for 15 mins)
+    const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET as string, { expiresIn: '15m' });
+    
+    // Create the reset URL pointing to your React frontend
+    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+
+    const message = `
+      <h2>LicenSync Password Reset</h2>
+      <p>You requested a password reset. Please go to this link to reset your password:</p>
+      <a href=${resetUrl} clicktracking=off>${resetUrl}</a>
+      <p><em>This link is valid for 15 minutes.</em></p>
+    `;
+
+    await sendEmail({
+      email: user.email,
+      subject: 'LicenSync - Password Reset Token',
+      html: message,
+    });
+
+    res.status(200).json({ message: 'Email sent successfully' });
+  } catch (error: any) {
+    res.status(500).json({ message: 'Email could not be sent. Please try again later.' });
+  }
+};
+
+// @desc    Reset Password
+// @route   PUT /api/auth/reset-password/:token
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Verify the token from the URL
+    const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET as string) as any;
+    const user = await User.findById(decoded.id);
+
+    if (!user) {
+      res.status(400).json({ message: 'Invalid or expired token' });
+      return;
+    }
+
+    // Update the password
+    user.password = req.body.password;
+    await user.save();
+
+    res.status(200).json({ message: 'Password reset successful. You can now log in.' });
+  } catch (error: any) {
+    res.status(400).json({ message: 'Invalid or expired token' });
+  }
 };

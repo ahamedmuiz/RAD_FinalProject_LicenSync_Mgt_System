@@ -28,12 +28,28 @@ const changePassword = async (passwordData: any) => {
   return response.data;
 };
 
-// Add it to the export object at the bottom:
+
+
+
+// Forgot Password (Sends Email)
+const forgotPassword = async (email: string) => {
+  const response = await api.post('/auth/forgot-password', { email });
+  return response.data;
+};
+
+// Reset Password (Uses Token)
+const resetPassword = async (token: string, password: string) => {
+  const response = await api.put(`/auth/reset-password/${token}`, { password });
+  return response.data;
+};
 
 const authService = {
   login,
   logout,
-  changePassword
+  changePassword,
+  forgotPassword, 
+  resetPassword,  
 };
+
 
 export default authService;

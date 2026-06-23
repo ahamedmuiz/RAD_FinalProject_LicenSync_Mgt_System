@@ -1,121 +1,135 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Lock, Mail, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, ShieldCheck, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { login, reset } from '../../features/auth/authSlice';
 import type { AppDispatch, RootState } from '../../store/store';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
 
-  // Grab the auth state from Redux
   const { user, isLoading, isError, isSuccess, message } = useSelector(
     (state: RootState) => state.auth
   );
 
   useEffect(() => {
-    // If login was successful, redirect based on their role!
+    if (isError) {
+      toast.error(message || 'Invalid email or password');
+      dispatch(reset());
+    }
+
     if (isSuccess && user) {
+      toast.success('Login Successful!');
       if (user.role === 'PROJECT_MANAGER') {
         navigate('/manager-dashboard');
       } else {
         navigate('/client-dashboard');
       }
-    }
-
-    // Clean up the success/error messages when the component unmounts
-    return () => {
       dispatch(reset());
-    };
+    }
   }, [user, isError, isSuccess, message, navigate, dispatch]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
 
   const onSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    dispatch(login({ email, password }));
+    dispatch(login(formData));
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+    <div className="min-h-screen flex bg-slate-50 font-sans">
+      
+      {/* Left Side - Vibrant Branding Panel */}
+      <div className="hidden lg:flex w-1/2 bg-gradient-to-br from-slate-900 via-indigo-950 to-violet-900 p-12 flex-col justify-between relative overflow-hidden">
+        {/* Decorative Blurred Blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-70 animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-violet-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-70 animate-pulse" style={{animationDelay: '2s'}}></div>
         
-        {/* Header Section */}
-        <div className="bg-indigo-600 p-8 text-center">
-          <h1 className="text-3xl font-bold text-white tracking-tight">LicenSync</h1>
-          <p className="text-indigo-200 mt-2 text-sm font-medium uppercase tracking-wider">
-            Enterprise License Portal
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="bg-gradient-to-br from-indigo-500 to-violet-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/30">
+            <ShieldCheck className="text-white" size={32} />
+          </div>
+          <span className="text-3xl font-extrabold text-white tracking-tight">LicenSync</span>
+        </div>
+        
+        <div className="relative z-10">
+          <h1 className="text-5xl font-black text-white leading-tight mb-6">Manage software licenses with precision.</h1>
+          <p className="text-indigo-200 text-xl font-medium max-w-md leading-relaxed">
+            Enterprise-grade portal access for automated billing, quote generation, and real-time seat consumption.
           </p>
         </div>
+        
+        <div className="relative z-10 text-indigo-400 font-medium text-sm">
+          © {new Date().getFullYear()} Elite Software Solutions
+        </div>
+      </div>
 
-        {/* Form Section */}
-        <div className="p-8">
-          <h2 className="text-2xl font-semibold text-slate-800 mb-6 text-center">
-            Sign in to your account
-          </h2>
-
-          {/* Error Message Display */}
-          {isError && (
-            <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3">
-              <AlertCircle size={20} className="mt-0.5 shrink-0" />
-              <p className="text-sm">{message}</p>
+      {/* Right Side - Form Panel */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+        <div className="w-full max-w-md">
+          
+          {/* Mobile Logo Header */}
+          <div className="lg:hidden flex items-center gap-3 mb-10 justify-center">
+            <div className="bg-gradient-to-br from-indigo-500 to-violet-500 p-3 rounded-2xl shadow-md">
+              <ShieldCheck className="text-white" size={32} />
             </div>
-          )}
+            <span className="text-3xl font-extrabold text-slate-900 tracking-tight">LicenSync</span>
+          </div>
 
-          <form onSubmit={onSubmit} className="space-y-5">
-            {/* Email Input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail size={18} className="text-slate-400" />
+          <div className="bg-white p-10 rounded-3xl shadow-2xl shadow-indigo-100/50 border border-slate-100">
+            <h2 className="text-3xl font-black text-slate-900 mb-2">Welcome back</h2>
+            <p className="text-slate-500 mb-8 font-medium">Please enter your credentials to access your account.</p>
+
+            <form onSubmit={onSubmit} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Email Address</label>
+                <div className="relative">
+                  <Mail size={20} className="absolute left-4 top-3.5 text-slate-400" />
+                  <input 
+                    required 
+                    type="email" 
+                    name="email" 
+                    value={formData.email} 
+                    onChange={handleChange} 
+                    placeholder="admin@elite.com" 
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-800" 
+                  />
                 </div>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all"
-                  placeholder="admin@elite.com"
-                />
               </div>
-            </div>
 
-            {/* Password Input */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock size={18} className="text-slate-400" />
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide">Password</label>
+                  <Link to="/forgot-password" className="text-sm font-bold text-indigo-600 hover:text-indigo-700 transition-colors">Forgot password?</Link>
                 </div>
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-600 focus:border-indigo-600 outline-none transition-all"
-                  placeholder="••••••••"
-                />
+                <div className="relative">
+                  <Lock size={20} className="absolute left-4 top-3.5 text-slate-400" />
+                  <input 
+                    required 
+                    type="password" 
+                    name="password" 
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    placeholder="••••••••" 
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-800" 
+                  />
+                </div>
               </div>
-            </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-70 disabled:cursor-not-allowed mt-4"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" /> Authenticating...
-                </>
-              ) : (
-                'Secure Login'
-              )}
-            </button>
-          </form>
+              <button 
+                type="submit" 
+                disabled={isLoading} 
+                className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-4 rounded-xl hover:from-indigo-700 hover:to-violet-700 transition-all shadow-lg shadow-indigo-200 flex justify-center items-center gap-2 mt-2 disabled:opacity-70"
+              >
+                {isLoading ? <><Loader2 size={20} className="animate-spin" /> Authenticating...</> : 'Sign In to Portal'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

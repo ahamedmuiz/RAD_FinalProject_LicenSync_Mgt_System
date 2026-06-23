@@ -1,7 +1,6 @@
 import express from 'express';
-import { createLicense, getLicenses, updateLicense, deleteLicense,generateRFQ, consumeSeat } from '../controllers/licenseController';
 import { protect, projectManagerOnly } from '../middleware/authMiddleware';
-
+import { createLicense, getLicenses, consumeSeat, generateRFQ, updateLicense, emailQuote, deleteLicense } from '../controllers/licenseController';
 const router = express.Router();
 
 // ALL routes in this file require the user to be logged in
@@ -12,10 +11,13 @@ router.route('/')
   .get(getLicenses)
   .post(projectManagerOnly, createLicense);
 
-// PUT and DELETE require a specific ID and are restricted to PMs.
+// Modify your /:id route block:
 router.route('/:id')
-  .put(projectManagerOnly, updateLicense)
-  .delete(projectManagerOnly, deleteLicense);
+  .put(protect, projectManagerOnly, updateLicense) 
+  .delete(protect, projectManagerOnly, deleteLicense); 
+
+// Add the email quote route:
+router.post('/:id/email-quote', protect, projectManagerOnly, emailQuote);
 
 
   // GET is accessible by both PMs and Clients so they can download the quote

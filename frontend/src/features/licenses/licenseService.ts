@@ -50,6 +50,18 @@ const consumeSeat = async (licenseId: string) => {
   return response.data;
 };
 
+// Update a license
+const updateLicense = async (licenseId: string, licenseData: any) => {
+  const response = await api.put(`/licenses/${licenseId}`, licenseData);
+  return response.data;
+};
+
+// Email Quote directly
+const emailQuote = async (licenseId: string, seats: number, price: number) => {
+  const response = await api.post(`/licenses/${licenseId}/email-quote`, { seats, price });
+  return response.data;
+};
+
 
 const licenseService = {
   getLicenses,
@@ -57,6 +69,8 @@ const licenseService = {
   downloadRFQ,
   deleteLicense,
   consumeSeat,
+  updateLicense,
+  emailQuote,
 };
 
 export default licenseService;

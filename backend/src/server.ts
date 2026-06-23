@@ -12,6 +12,11 @@ import licenseRoutes from './routes/licenseRoutes';
 // Load environment variables
 dotenv.config();
 
+//--------------|
+
+console.log('GMAIL_APP_PASSWORD:', process.env.GMAIL_APP_PASSWORD);
+console.log('Length:', process.env.GMAIL_APP_PASSWORD?.length);
+//----------|
 // Connect to MongoDB
 connectDB();
 
