@@ -1,4 +1,4 @@
-import { Response } from "express";
+import { Response, Request } from "express";
 import { AuthRequest } from "../middleware/authMiddleware";
 import SoftwareLicense from "../models/SoftwareLicense";
 import { buildRFQDocument } from "../services/pdfGenerator";
@@ -9,7 +9,7 @@ import { buildRFQBuffer } from "../services/pdfGenerator";
 // @route   POST /api/licenses
 // @access  Private / Project Manager Only
 export const createLicense = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
 ): Promise<void> => {
   try {
@@ -283,7 +283,7 @@ export const emailQuote = async (
       subject: `LicenSync Quotation - ${rfqData.quotationNumber}`,
       html: `<h3>Hello ${client.companyName},</h3>
              <p>Please find attached your requested quotation for <strong>${rfqData.softwareName}</strong> (${rfqData.seatCount} seats).</p>
-             <p>Total Amount: <strong>$${rfqData.totalAmount}</strong></p>
+             <p>Total Amount: <strong>RS.${rfqData.totalAmount}</strong></p>
              <br><p>Best regards,<br>Elite Software Solutions</p>`,
       attachments: [
         {

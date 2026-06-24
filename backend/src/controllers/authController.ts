@@ -4,14 +4,14 @@ import User from '../models/User';
 import { sendEmail } from '../utils/sendEmail'; 
 
 
-// Helper function to generate a short-lived JWT
+// to generate a short-lived JWT
 const generateToken = (id: string, role: string) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
-    expiresIn: '15m', // Short-lived access token for security
+    expiresIn: '15m', 
   });
 };
 
-// Helper function to generate a long-lived HTTP-Only Refresh Token
+// to generate a long-lived HTTP-Only Refresh Token
 const generateRefreshToken = (id: string) => {
   return jwt.sign({ id }, process.env.JWT_SECRET as string, {
     expiresIn: '7d', 
@@ -204,7 +204,13 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {
     // Verify the token from the URL
-    const decoded = jwt.verify(req.params.token, process.env.JWT_SECRET as string) as any;
+    const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+    if (!token) {
+      res.status(400).json({ message: 'Invalid or expired token' });
+      return;
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as any;
     const user = await User.findById(decoded.id);
 
     if (!user) {

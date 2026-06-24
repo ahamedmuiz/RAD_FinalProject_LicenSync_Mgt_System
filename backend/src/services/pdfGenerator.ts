@@ -88,8 +88,8 @@ export const buildRFQDocument = (res: Response, data: RFQData): void => {
   doc.text(data.softwareName, 50, tableTop + 25);
   doc.text(data.vendor, 200, tableTop + 25);
   doc.text(data.seatCount.toString(), 300, tableTop + 25);
-  doc.text(`$${data.pricePerSeat.toFixed(2)}`, 380, tableTop + 25);
-  doc.text(`$${data.totalAmount.toFixed(2)}`, 480, tableTop + 25);
+  doc.text(`${data.pricePerSeat.toFixed(2)}`, 380, tableTop + 25);
+  doc.text(`Rs ${data.totalAmount.toFixed(2)}`, 480, tableTop + 25);
 
   doc.moveDown(3);
 
@@ -190,8 +190,8 @@ export const buildRFQBuffer = (data: RFQData): Promise<Buffer> => {
       doc.text(data.softwareName, 50, tableTop + 25);
       doc.text(data.vendor, 200, tableTop + 25);
       doc.text(data.seatCount.toString(), 300, tableTop + 25);
-      doc.text(`$${data.pricePerSeat.toFixed(2)}`, 380, tableTop + 25);
-      doc.text(`$${data.totalAmount.toFixed(2)}`, 480, tableTop + 25);
+      doc.text(`${data.pricePerSeat.toFixed(2)}`, 380, tableTop + 25);
+      doc.text(`Rs ${data.totalAmount.toFixed(2)}`, 480, tableTop + 25);
 
       doc.moveDown(3);
 

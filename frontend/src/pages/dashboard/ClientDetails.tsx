@@ -116,7 +116,7 @@ const ClientDetails = () => {
                   <div className="flex gap-3">
                     {expStatus.expired ? (
                       <div className="flex-1 flex justify-center items-center gap-2 bg-red-100 text-red-700 py-3 rounded-xl font-bold border border-red-200 cursor-not-allowed">
-                        <AlertTriangle size={18} /> Terminated - Read Only
+                        <AlertTriangle size={18} /> Terminated
                       </div>
                     ) : (
                       <button onClick={() => setSelectedLicenseForQuote(lic)} className="flex-1 flex justify-center items-center gap-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white border border-indigo-100 py-3 rounded-xl font-bold transition-all shadow-sm">

@@ -170,7 +170,7 @@ const ClientDashboard = () => {
 
                     {expStatus.expired ? (
                        <div className="w-full flex justify-center items-center gap-2 bg-red-100 text-red-700 py-3.5 rounded-xl font-bold border border-red-200 cursor-not-allowed shadow-sm">
-                         <AlertTriangle size={18} /> License Terminated - Read Only
+                         <AlertTriangle size={18} /> License Terminated 
                        </div>
                     ) : (
                       <button 
