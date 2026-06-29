@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5005/api',
+  // Pointing to your live Render backend
+  baseURL: 'https://rad-finalproject-licensync-mgt-system-yl9c.onrender.com/api',
   withCredentials: true, // Crucial for sending/receiving our HTTP-Only cookie
 });
 
@@ -28,8 +29,8 @@ api.interceptors.response.use(
       originalRequest._retry = true; // Mark as retried so we don't infinite loop
 
       try {
-        // Use bare Axios to hit the refresh endpoint (prevents interceptor loops)
-        const refreshResponse = await axios.get('http://localhost:5005/api/auth/refresh', {
+        // Use bare Axios to hit the live Render refresh endpoint
+        const refreshResponse = await axios.get('https://rad-finalproject-licensync-mgt-system-yl9c.onrender.com/api/auth/refresh', {
           withCredentials: true, // Send the hidden cookie!
         });
 
@@ -42,7 +43,7 @@ api.interceptors.response.use(
           localStorage.setItem('user', JSON.stringify(user));
         }
 
-        // Update the failed request with the new token and try again!
+        // Update the failed request with the new token and try again
         originalRequest.headers.Authorization = `Bearer ${newToken}`;
         return api(originalRequest);
 
