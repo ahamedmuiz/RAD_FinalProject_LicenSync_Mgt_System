@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User';
 import { sendEmail } from '../utils/sendEmail'; 
 
-
 // to generate a short-lived JWT
 const generateToken = (id: string, role: string) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
@@ -67,11 +66,11 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
       // 1. Generate the 7-day refresh token
       const refreshToken = generateRefreshToken(user._id.toString());
       
-      // 2. Attach it as an HTTP-Only cookie (Cannot be stolen by JavaScript!)
+      // 2. Attach it as an HTTP-Only cookie (Cross-Domain Safe!)
       res.cookie('jwt', refreshToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV !== 'development', // Uses secure HTTPS in production
-        sameSite: 'strict',
+        secure: true,            // CRITICAL: Required for cross-domain cookies
+        sameSite: 'none',        // CRITICAL: Tells the browser this cookie can be sent across domains (Vercel -> Render)
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
       });
 
@@ -91,7 +90,6 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ message: error.message });
   }
 };
-
 
 // @desc    Change User Password
 // @route   PUT /api/auth/change-password
@@ -158,11 +156,12 @@ export const refreshAccessToken = async (req: Request, res: Response): Promise<v
 export const logoutUser = (req: Request, res: Response) => {
   res.cookie('jwt', '', {
     httpOnly: true,
+    secure: true,       // Must match login options to delete properly
+    sameSite: 'none',   // Must match login options to delete properly
     expires: new Date(0), // Instantly expire the cookie
   });
   res.status(200).json({ message: 'Logged out successfully' });
 };
-
 
 // @desc    Forgot Password - Send Email
 // @route   POST /api/auth/forgot-password
@@ -177,8 +176,9 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
     // Generate a temporary reset token (Valid for 15 mins)
     const resetToken = jwt.sign({ id: user._id }, process.env.JWT_SECRET as string, { expiresIn: '15m' });
     
-    // Create the reset URL pointing to your React frontend
-    const resetUrl = `http://localhost:5173/reset-password/${resetToken}`;
+    // Create the reset URL dynamically based on environment
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
 
     const message = `
       <h2>LicenSync Password Reset</h2>
