@@ -22,11 +22,17 @@ connectDB();
 
 const app = express();
 
-// Global Middleware
+// // Global Middleware
+// app.use(cors({
+//   origin: 'http://localhost:5173', // Your Vite frontend
+//   credentials: true,               // Allow HTTP-only cookies
+// }));
+
 app.use(cors({
-  origin: 'http://localhost:5173', // Your Vite frontend
-  credentials: true,               // Allow HTTP-only cookies
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
+  credentials: true,
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
