@@ -10,19 +10,25 @@ interface EmailOptions {
 
 export const sendEmail = async (options: EmailOptions) => {
   try {
-    // Explicit SMTP settings to prevent Render timeouts
+    // 1. Check if Environment Variables actually exist on Render
+    if (!process.env.EMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
+      throw new Error("Missing EMAIL_USER or GMAIL_APP_PASSWORD in Render environment variables.");
+    }
+
+    // 2. Cloud-Optimized SMTP Settings (Port 587 with STARTTLS)
     const transporter = nodemailer.createTransport({
       host: 'smtp.gmail.com',
-      port: 465,
-      secure: true, // Use SSL
+      port: 587,             // Port 587 is much more reliable on cloud hosts than 465
+      secure: false,         // MUST be false when using port 587
+      requireTLS: true,      // Forces the connection to upgrade to secure TLS
       auth: {
-        user: 'ahamedmuiz119@gmail.com',
-        pass: process.env.GMAIL_APP_PASSWORD, // Pulled securely from Render Environment Variables
+        user: process.env.EMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD, 
       },
     });
 
     const mailOptions = {
-      from: 'LicenSync Admin <ahamedmuiz119@gmail.com>',
+      from: `"LicenSync Admin" <${process.env.EMAIL_USER}>`,
       to: options.email,
       subject: options.subject,
       text: options.message,
@@ -33,8 +39,9 @@ export const sendEmail = async (options: EmailOptions) => {
     const info = await transporter.sendMail(mailOptions);
     console.log(`Email successfully sent to ${options.email}. Message ID: ${info.messageId}`);
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('CRITICAL ERROR: Failed to send email:', error);
-    throw new Error('Email could not be sent. Please try again later.');
+    // 3. Throw the ACTUAL error message to the frontend so we can debug it easily!
+    throw new Error(`Email System Error: ${error.message}`);
   }
 };
