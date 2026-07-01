@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 interface EmailOptions {
   email: string;
@@ -11,23 +10,20 @@ interface EmailOptions {
 
 export const sendEmail = async (options: EmailOptions) => {
   try {
+    // 1. Check if Environment Variables actually exist on Render
     if (!process.env.EMAIL_USER || !process.env.GMAIL_APP_PASSWORD) {
-      throw new Error("Missing EMAIL_USER or GMAIL_APP_PASSWORD in environment variables.");
+      throw new Error("Missing EMAIL_USER or GMAIL_APP_PASSWORD in Render environment variables.");
     }
 
-    // Explicitly cast this configuration as SMTPTransport.Options
-    const smtpOptions: SMTPTransport.Options = {
-      host: 'smtp.gmail.com',
-      port: 587,
+    // 2. Cloud-Optimized SMTP Settings
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
       secure: false,
-      requireTLS: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD,
       },
-    };
-
-    const transporter = nodemailer.createTransport(smtpOptions);
+    });
 
     const mailOptions = {
       from: `"LicenSync Admin" <${process.env.EMAIL_USER}>`,
@@ -43,6 +39,7 @@ export const sendEmail = async (options: EmailOptions) => {
     
   } catch (error: any) {
     console.error('CRITICAL ERROR: Failed to send email:', error);
+    // 3. Throw the ACTUAL error message to the frontend so we can debug it easily!
     throw new Error(`Email System Error: ${error.message}`);
   }
 };
