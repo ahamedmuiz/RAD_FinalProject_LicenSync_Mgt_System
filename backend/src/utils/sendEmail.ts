@@ -18,13 +18,12 @@ export const sendEmail = async (options: EmailOptions) => {
     // Explicitly cast this configuration as SMTPTransport.Options
     const smtpOptions: SMTPTransport.Options = {
       host: 'smtp.gmail.com',
-      port: 587,             
-      secure: false,         
-      requireTLS: true,      
-      family: 4,             // Forces IPv4
+      port: 587,
+      secure: false,
+      requireTLS: true,
       auth: {
         user: process.env.EMAIL_USER,
-        pass: process.env.GMAIL_APP_PASSWORD, 
+        pass: process.env.GMAIL_APP_PASSWORD,
       },
     };
 
